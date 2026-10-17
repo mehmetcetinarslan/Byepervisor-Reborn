@@ -1,0 +1,42 @@
+name: Build Byepervisor ELF
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Get source code
+        uses: actions/checkout@v4
+
+      - name: Install compiler tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 lld-18 gcc binutils make xxd unzip curl file
+
+      - name: Install PS5 payload SDK
+        run: |
+          curl --fail --location --retry 3 \
+            'https://github.com/ps5-payload-dev/sdk/releases/download/v0.44/ps5-payload-sdk.zip' \
+            --output /tmp/ps5-payload-sdk.zip
+          sudo unzip -q /tmp/ps5-payload-sdk.zip -d /opt
+          test -f /opt/ps5-payload-sdk/toolchain/prospero.mk
+
+      - name: Build PS5 ELF
+        env:
+          PS5_PAYLOAD_SDK: /opt/ps5-payload-sdk
+        run: |
+          make clean
+          make
+          file byepervisor_reborn.elf
+          test -s byepervisor_reborn.elf
+
+      - name: Downloadable output
+        uses: actions/upload-artifact@v4
+        with:
+          name: byepervisor-reborn-elf
+          path: byepervisor_reborn.elf
+          if-no-files-found: error
